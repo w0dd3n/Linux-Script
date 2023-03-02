@@ -85,7 +85,7 @@ EOF
 
 curl -s https://api.wordpress.org/secret-key/1.1/salt/ > /home/simplon/wp-api.txt
 echo "## SECRET KEY RELEASE $(date --rfc-3339='seconds')" >> /home/simplon/wp-api.txt
-cp /var/www/apache2/wp-config.php /var/www/apache2/wp-config.php.old
-awk -f /home/simplon/config.awk /home/simplon/wp-api.txt /var/www/apache2/wp-config.php.old > /var/www/apache2/wp-config.php
+cp /var/www/$FQDN/wp-config.php /var/www/$FQDN/wp-config.php.old
+awk -f /home/simplon/config.awk /home/simplon/wp-api.txt /var/www/$FQDN/wp-config.php.old > /var/www/$FQDN/wp-config.php
 rm /home/simplon/config.awk
 rm /home/simplon/wp-api.txt
