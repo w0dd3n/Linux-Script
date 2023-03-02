@@ -63,26 +63,6 @@ apache2ctl configtest
 systemctl restart apache2
 
 ## SETUP WORDPRESS CONFIGURATION FILE
-cat <<EOF>/home/simplon/config.awk
-NR==FNR {
-    insert = (NR==1 ? "" : insert ORS) $0
-    next
-}
-sub(/^## BEGIN.*/,"") {
-  beg = $0 "## BEGIN\n"
-  inSub = 1
-}
-inSub {
-  if ( sub(/.*^## END/,"") ) {
-    end = "\n## END" $0
-    print beg insert end
-    inSub = 0
-  }
-  next
-}
-{ print }
-EOF
-
 curl -s https://api.wordpress.org/secret-key/1.1/salt/ > /home/simplon/wp-api.txt
 echo "## SECRET KEY RELEASE $(date --rfc-3339='seconds')" >> /home/simplon/wp-api.txt
 cp /var/www/$FQDN/wp-config.php /var/www/$FQDN/wp-config.php.old
