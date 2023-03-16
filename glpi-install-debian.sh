@@ -9,9 +9,9 @@
 
 ## User Informaiton Display functions
 INSTALL_LOG="/var/log/install-glpi.log"
-function error() { echo -e "[\e[31m  ERROR  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee ${INSTALL_LOG}; }
-function warn()  { echo -e "[\e[33m WARNING \e[0m] - $(date --rfc-3339=seconds) - $1" | tee ${INSTALL_LOG}; }
-function info()  { echo -e "[\e[32m  INFOS  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee ${INSTALL_LOG}; }
+function error() { echo -e "[\e[31m  ERROR  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee -a ${INSTALL_LOG}; }
+function warn()  { echo -e "[\e[33m WARNING \e[0m] - $(date --rfc-3339=seconds) - $1" | tee -a ${INSTALL_LOG}; }
+function info()  { echo -e "[\e[32m  INFOS  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee -a ${INSTALL_LOG}; }
 
 function check_root()
 {
