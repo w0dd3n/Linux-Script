@@ -127,23 +127,12 @@ function mariadb_configure()
     info "SQL Root Password = ${SQLROOTPWD}"
     info "SQL GLPI Password = ${GLPISQLPWD}"
 
-    # Set the root password
-    mysql -e "SET PASSWORD FOR 'root'@localhost =sud PASSWORD('$SLQROOTPWD')"
-    # Remove anonymous user accounts
+    mysql -e "SET PASSWORD FOR 'root'@localhost = PASSWORD('$SLQROOTPWD')"
     mysql -e "DROP USER IF EXISTS ''"
-    # Reload privileges
+    mysql -e "CREATE DATABASE glpidb"
+    mysql -e "CREATE USER 'glpi_user'@'localhost' IDENTIFIED BY '$SQLGLPIPWD'"
+    mysql -e "GRANT ALL PRIVILEGES ON glpidb.* TO 'glpi_user'@'localhost'"
     mysql -e "FLUSH PRIVILEGES"
-
-    # Create database for GLPI
-    # Create default user for GLPI with privileges
-    mysql -u root -p'$SLQROOTPWD' <<EOF
-CREATE DATABASE glpidb;
-CREATE USER 'glpi_user'@'localhost' IDENTIFIED BY '$SQLGLPIPWD';
-GRANT ALL PRIVILEGES ON glpidb.* TO 'glpi_user'@'localhost';
-FLUSH PRIVILEGES;
-QUIT;
-EOF
-
 }
 
 function glpi_install()
@@ -184,7 +173,8 @@ EOF
     echo "*/2 * * * * www-data /usr/bin/php /var/www/html/glpi/front/cron.php &>/dev/null" >> /etc/cron.d/glpi
 
     info "Starting GLPI Web Server ..."
-    a2enmod rewrite && service apache2 restart
+    a2enmod rewrite &>/dev/null
+    service apache2 restart
 
     if [[ $(systemctl is-active apache2) != "active" ]]; then
         error "Apache2 service is INACTIVE !";
@@ -199,7 +189,11 @@ function setup_db()
 {
     info "GLPI - Setting up database ..."
     cd /var/www/html/glpi
-    php bin/console db:install --db-name=glpidb --db-user=glpi_user --db-password=$SQLGLPIPWD --no-interaction
+
+    ## TODO - BUGFIX - System requirements missing. Run "php bin/console system:check_requirements" for details
+    ## TODO - BUGFIX - php bin/console database:enable_timezones
+
+    php bin/console db:install --db-name=glpidb --db-user=glpi_user --db-password=$SQLGLPIPWD --no-interaction &>/dev/null
     if [ $? -ne 0 ]; then
         error "Failed to update GLPI Database in PHP Module. Exiting ... "
         exit $?
