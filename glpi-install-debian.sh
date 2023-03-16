@@ -7,9 +7,10 @@
 #
 
 ## User Informaiton Display functions
-function error() { echo -e "['\e[31m'ERROR'\e[0m'] $1"; }
-function warn()  { echo -e "['\e[33m'WARNING'\e[0m'] $1"; }
-function info()  { echo -e "['\e[32m'INFO'\e[0m'] $1"; }
+INSTALL_LOG="/var/log/install-glpi.log"
+function error() { echo -e "[\e[31m  ERROR  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee ${INSTALL_LOG}; }
+function warn()  { echo -e "[\e[33m WARNING \e[0m] - $(date --rfc-3339=seconds) - $1" | tee ${INSTALL_LOG}; }
+function info()  { echo -e "[\e[32m  INFOS  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee ${INSTALL_LOG}; }
 
 function check_root()
 {
@@ -59,14 +60,14 @@ function check_distro()
 function net_info()
 {
     INTERFACE=$(ip route | awk 'NR==1 {print $5}')
-    IPADRESS=$(ip addr show $INTERFACE | grep inet | awk '{ print $2; }' | sed 's/\/.*$//' | head -n 1)
+    IPADDR=$(ip addr show $INTERFACE | grep inet | awk '{ print $2; }' | sed 's/\/.*$//' | head -n 1)
     HOST=$(hostname)
 }
 
 function install_packages()
 {
     info "Installing packages..."
-    apt update &>/dev/null
+    apt update 
     apt install --yes --no-install-recommends \
         apache2 \
         libapache2-mod-php \
@@ -75,7 +76,7 @@ function install_packages()
         curl \
         jq \
         php \
-        apcupsd &>/dev/null
+        apcupsd
 
     info "Installing php extensions..."
     apt install --yes --no-install-recommends \
@@ -92,7 +93,7 @@ function install_packages()
         php-xml \
         php-intl \
         php-zip \
-        php-bz2 &>/dev/null
+        php-bz2 
 
     info "Activating & Restarting MariaDB and Apache2..."
     systemctl enable mariadb
@@ -218,7 +219,7 @@ function install_summary()
     info "GLPI database name:      glpidb"
     echo ""
     info "Finalize setup connecting to GLPI"
-    info "http://$IPADRESS/glpi or http://$HOST/glpi" 
+    info "http://$IPADDR/glpi or http://$HOST/glpi" 
     echo ""
     info "<==========================================>"
     echo ""
