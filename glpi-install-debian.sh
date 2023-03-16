@@ -2,6 +2,7 @@
 #@file
 
 # GLPI Installation script for debian-like distros
+# Compliant for MariaDB 10.4+ only
 #
 # NOTE ! This script expects to be running as under ROOT ID
 #
@@ -66,20 +67,27 @@ function net_info()
 
 function install_packages()
 {
-    info "Installing packages..."
+    info "Updating packages repo..."
     apt update 
-    apt install --yes --no-install-recommends \
+    info "Installing Apache2 Packages..."
+    apt install --yes --no-install-recommends --quiet \
         apache2 \
         libapache2-mod-php \
-        mariadb-server \
-        perl \
-        curl \
-        jq \
         php \
         apcupsd
 
-    info "Installing php extensions..."
-    apt install --yes --no-install-recommends \
+    info "Installing Mariadb Packages..."
+    apt install --yes --no-install-recommends --quiet \
+        mariadb-server
+
+    info "Installing Add-ons..."
+    apt install --yes --no-install-recommends --quiet \
+        perl \
+        curl \
+        jq
+
+    info "Installing PHP extensions..."
+    apt install --yes --no-install-recommends --quiet \
         php-ldap \
         php-imap \
         php-apcu \
@@ -111,21 +119,18 @@ function install_packages()
 
 function mariadb_configure()
 {
-    ## Do custom hardening due to 'mysql_secure_installation' bugs
+    ## TODO - Replace with auto completion script for 'mysql_secure_installation' 
 
-    info "Configuring and hardening MariaDB..."
+    info "Configuring MariaDB Accounts and Databases..."
     SLQROOTPWD=$(openssl rand -base64 48 | cut -c1-16 )
     SQLGLPIPWD=$(openssl rand -base64 48 | cut -c1-16 )
+    info "SQL Root Password = ${SQLROOTPWD}"
+    info "SQL GLPI Password = ${GLPISQLPWD}"
 
     # Set the root password
-    mysql -e "UPDATE mysql.user SET Password = PASSWORD('$SLQROOTPWD') WHERE User = 'root'"
+    mysql -e "SET PASSWORD FOR 'root'@localhost =sud PASSWORD('$SLQROOTPWD')"
     # Remove anonymous user accounts
-    mysql -e "DELETE FROM mysql.user WHERE User = ''"
-    # Disable remote root login
-    mysql -e "DELETE FROM mysql.user WHERE User = 'root' AND Host NOT IN ('localhost', '127.0.0.1', '::1')"
-    # Remove the test database
-    mysql -e "DROP DATABASE test"
-
+    mysql -e "DROP USER IF EXISTS ''"
     # Reload privileges
     mysql -e "FLUSH PRIVILEGES"
 
@@ -151,6 +156,7 @@ function glpi_install()
         exit $?
     fi
     tar xzf /tmp/glpi-latest.tgz -C /var/www/html/
+    rm -fr /tmp/glpi-latest.tgz
     chown -R www-data:www-data /var/www/html/glpi
     chmod -R 775 /var/www/html/glpi
 
@@ -185,7 +191,7 @@ EOF
         warn "Use this command for details : 'journalctl -u <service-name>.service -b'"
         exit $?
     else
-        info "Apache2 service is UPDATED & ACTIVE !"
+        info "GLPI Web Interface is ACTIVE !"
     fi
 }
 
@@ -219,7 +225,7 @@ function install_summary()
     info "GLPI database name:      glpidb"
     echo ""
     info "Finalize setup connecting to GLPI"
-    info "http://$IPADDR/glpi or http://$HOST/glpi" 
+    info "http://$IPADDR/ or http://$HOST/" 
     echo ""
     info "<==========================================>"
     echo ""
