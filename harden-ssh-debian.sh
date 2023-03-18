@@ -1,5 +1,5 @@
 #!/bin/bash
-# SSH Server Hardening Automation - Debian-like distro
+# SSH Server Hardening Automation
 
 ## TODO - Handle SSH Key generation or import
 
@@ -26,9 +26,9 @@ USAGE=0
 VERSION=0
 
 HARDEN_LOG="/var/log/harden-ssh.log"
-function error() { echo -e "[\e[31m  ERROR  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee -a ${INSTALL_LOG}; }
-function warn()  { echo -e "[\e[33m WARNING \e[0m] - $(date --rfc-3339=seconds) - $1" | tee -a ${INSTALL_LOG}; }
-function info()  { echo -e "[\e[32m  INFOS  \e[0m] - $(date --rfc-3339=seconds) - $1" | tee -a ${INSTALL_LOG}; }
+function error() { echo -e "[\e[31m  ERROR  \e[0m]-$(date --rfc-3339=seconds)-$1" | tee -a ${HARDEN_LOG}; }
+function warn()  { echo -e "[\e[33m WARNING \e[0m]-$(date --rfc-3339=seconds)-$1" | tee -a ${HARDEN_LOG}; }
+function info()  { echo -e "[\e[32m  INFOS  \e[0m]-$(date --rfc-3339=seconds)-$1" | tee -a ${HARDEN_LOG}; }
 
 ### Arguments Handler
 ###
@@ -52,7 +52,8 @@ while [[ $# > 0 ]]; do
 	shift
 done
 
-usage() {
+usage() 
+{
 	printf "${BOLD}NAME${RST}\n"
 	printf "	$BASENAME\n\n"
 	printf "${BOLD}SYNOPSIS${RST}\n"
@@ -70,7 +71,8 @@ usage() {
 	printf " 		Display command release informations\n\n"
 }
 
-show_version() {
+show_version() 
+{
 	printf "${BOLD}NAME${RST}    $BASENAME\n"
 	printf "${BOLD}AUTHOR${RST}  $AUTHOR\n"
 	printf "${BOLD}RELEASE${RST} $RELEASE\n"
@@ -100,6 +102,7 @@ function check_sshd()
             exit 1
         else
             info "OpenSSH Server Installation SUCCEDDED"
+		fi
     fi
 
     systemctl enable openssh-server &>/dev/null
@@ -114,22 +117,23 @@ function check_sshd()
     exit 0
 }
 
-harden_sshd() {
-	info "Starting SSHD Server Hardening...\n\n"
+harden_sshd() 
+{
+	info "Starting SSHD Server Hardening...\n"
 
-	warn "Backup original config file\n"
+	warn "Backup original config file"
 	cp ${SSHD_CONFIG} ${SSHD_CONFIG}.$(date +"%y%m%d-%H%M%Z").bak
 
-	info "ANSSI-R2 - Enforcing SSHD Release 2 only\n"
+	info "ANSSI-R2 - Enforcing SSHD Release 2 only"
     sed -i "s/^.*Protocol.*$/Protocol 2/g" ${SSHD_CONFIG}
 	
-	info "Replacing port number by 666\n"
-    sed -i "s/.*Port.*/Port 666/g"
+	info "Replacing port number by 666"
+    sed -i "s/.*Port.*/Port 666/g" ${SSHD_CONFIG}
 
-	info "Anonymize SSHD service banner\n"
+	info "Anonymize SSHD service banner"
 	warn "Anonymization requires full re-install = ABORTING\n"
 
-	info "Adding login banner message\n"	
+	info "Adding login banner message"	
 	touch $SSHD_BANNER
 	printf "" > $SSHD_BANNER
 	printf "\n\n***************************************************\n" >> $SSHD_BANNER
@@ -144,27 +148,26 @@ harden_sshd() {
 	sed -i 's/.*PrintMotd.*/PrintMotd no/' $SSHD_CONFIG
 
 
-	info "Enforce Privilege Execution Separation\n"
+	info "Enforce Privilege Execution Separation"
 	sed -i 's/.*UsePrivilegeSeparation.*/UsePrivilegeSeparation sandbox/' $SSHD_CONFIG
 
-	info "Enforce Restriction of user environnement\n"
+	info "Enforce Restriction of user environnement"
 	sed -i 's/.*PermitUserEnvironment.*/PermitUserEnvironment no/' $SSHD_CONFIG
 
-	warn "Restrict number of active sessions = Max is 3 sessions\n"
+	warn "Restrict number of active sessions = Max is 3 sessions"
 	sed -i 's/.*MaxSessions.*/MaxSessions 3/' $SSHD_CONFIG
 
-	info "Deny ROOT account usage\n"
+	info "Deny ROOT account usage"
 	sed -i "s/^.*PermitRootLogin.*$/PermitRootLogin no/g" ${SSHD_CONFIG}
 
-	printf "[${GRN}INFO${RST}] - Deny password authentication method\n"
+	info "Deny password authentication method"
 	sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication no/' $SSHD_CONFIG
 	sed -i 's/.*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' $SSHD_CONFIG
 	sed -i 's/.*UsePAM.*/UsePAM no/' $SSHD_CONFIG
 
-	info "Restrict to ECDSA or RSA server keypair usage\n"
+	info "Restrict to ECDSA or RSA server keypair usage"
 	rm -f $SSHD_DIR/ssh_host_dsa*
 	rm -f $SSHD_DIR/ssh_host_ed*
-
 
 	## PREREQUISITE
 	## Generate allowed users keypair as follow
@@ -174,22 +177,22 @@ harden_sshd() {
 	## Copy Public Key to the SSHD Server
 	## ssh-copy-id sshd_username@sshd_ip_address
 
-	info "Prevent X11 Forwading - Graphical Interface Denial\n"
+	info "Prevent X11 Forwading - Graphical Interface Denial"
 	sed -i 's/.*X11Forwarding.*/X11Forwarding no/' $SSHD_CONFIG
 
-	info "Prevent TCP Forwarding on server\n"
+	info "Prevent TCP Forwarding on server"
 	sed -i 's/.*AllowTcpForwarding.*/AllowTcpForwarding no/' $SSHD_CONFIG
 
-	warn "ANSSI-R15 - Restrict allowed crypto algorithms\n"
+	warn "ANSSI-R15 - Restrict allowed crypto algorithms"
     printf "Ciphers aes256-ctr,aes192-ctr,aes128-ctr\n" >> $SSHD_CONFIG
 	printf "MACs hmac-sha2-512,hmac-sha2-256\n" >> $SSHD_CONFIG
 
-	info "Enforcing enhanced logging of SSH Server activities\n"
+	info "Enforcing enhanced logging of SSH Server activities"
 	sed -i 's/.*PrintLastLog.*/PrintLastLog yes/' $SSHD_CONFIG
 	sed -i 's/.*SyslogFacility.*/SyslogFacility AUTH/' $SSHD_CONFIG
 	sed -i 's/.*LogLevel.*/LogLevel INFO/' $SSHD_CONFIG
 
-	printf "[${GRN}INFO${RST}] - Reload configuration of OpenSSH Server\n"
+	printf "[${GRN}INFO${RST}] - Reload configuration of OpenSSH Server"
     systemctl restart openssh-server
 	if [ $? != 0 ]; then
 		error "FAILED TO APPLY SECURITY CONFIG\n\n"
@@ -207,10 +210,11 @@ elif [[ $VERSION = 1 ]]; then
 	exit 1
 elif [[ $HARDEN_SSHD = 1 ]]; then
     check_root
+	check_sshd
 	harden_sshd
 	exit 1
 else 
-	error "Invalid argument. See help for more details.\n\n"
+	error "Invalid argument. See help for more details.\n"
 	exit 128
 fi
 
