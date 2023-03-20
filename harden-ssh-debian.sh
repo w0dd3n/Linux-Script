@@ -30,28 +30,6 @@ function error() { echo -e "[\e[31m  ERROR  \e[0m]-$(date --rfc-3339=seconds)-$1
 function warn()  { echo -e "[\e[33m WARNING \e[0m]-$(date --rfc-3339=seconds)-$1" | tee -a ${HARDEN_LOG}; }
 function info()  { echo -e "[\e[32m  INFOS  \e[0m]-$(date --rfc-3339=seconds)-$1" | tee -a ${HARDEN_LOG}; }
 
-### Arguments Handler
-###
-while [[ $# > 0 ]]; do
-	ARG="$1"
-	case $ARG in
-	-s|--secure)
-		HARDEN_SSHD=1
-		;;
-	-h|--help)
-		USAGE=1
-		;;
-	-v|--version)
-		VERSION=1
-		;;
-	*)
-		error "Unknonw argument, aborting...\n\n"
-		exit 128
-		;;
-	esac
-	shift
-done
-
 usage() 
 {
 	printf "${BOLD}NAME${RST}\n"
@@ -124,7 +102,7 @@ harden_sshd()
 	warn "Backup original config file"
 	cp ${SSHD_CONFIG} ${SSHD_CONFIG}.$(date +"%y%m%d-%H%M%Z").bak
 
-	info "ANSSI-R2 - Enforcing SSHD Release 2 only"
+	info "Enforcing SSHD Release 2 only"
     sed -i "s/^.*Protocol.*$/Protocol 2/g" ${SSHD_CONFIG}
 	
 	info "Replacing port number by 666"
@@ -134,36 +112,36 @@ harden_sshd()
 	warn "Anonymization requires full re-install = ABORTING\n"
 
 	info "Adding login banner message"	
-	touch $SSHD_BANNER
-	printf "" > $SSHD_BANNER
-	printf "\n\n***************************************************\n" >> $SSHD_BANNER
-	printf "\tWARNING Unauthorized access to this system\n" >> $SSHD_BANNER
-	printf "\tis forbidden and will be prosecuted by law.\n" >> $SSHD_BANNER
-	printf "\tBy accessing this system, you agree that your\n" >> $SSHD_BANNER
-	printf "\tactions may be monitored if unauthorized usage\n" >> $SSHD_BANNER
-	printf "\tis suspected by our organization\n" >> $SSHD_BANNER
-	printf "***************************************************\n" >> $SSHD_BANNER
-	printf "Banner $SSHD_BANNER\n" >> $SSHD_CONFIG
-	sed -i 's/.*Banner.*/Banner ${SSHD_BANNER}/' $SSHD_CONFIG
-	sed -i 's/.*PrintMotd.*/PrintMotd no/' $SSHD_CONFIG
+	touch ${SSHD_BANNER}
+	printf "" > ${SSHD_BANNER}
+	printf "\n\n***************************************************\n" >> ${SSHD_BANNER}
+	printf "\tWARNING Unauthorized access to this system\n" >> ${SSHD_BANNER}
+	printf "\tis forbidden and will be prosecuted by law.\n" >> ${SSHD_BANNER}
+	printf "\tBy accessing this system, you agree that your\n" >> ${SSHD_BANNER}
+	printf "\tactions may be monitored if unauthorized usage\n" >> ${SSHD_BANNER}
+	printf "\tis suspected by our organization\n" >> ${SSHD_BANNER}
+	printf "***************************************************\n" >> ${SSHD_BANNER}
+	printf "Banner ${SSHD_BANNER}\n" >> ${SSHD_CONFIG}
+	sed -i 's/.*Banner.*/Banner ${SSHD_BANNER}/' ${SSHD_CONFIG}
+	sed -i 's/.*PrintMotd.*/PrintMotd no/' ${SSHD_CONFIG}
 
 
 	info "Enforce Privilege Execution Separation"
-	sed -i 's/.*UsePrivilegeSeparation.*/UsePrivilegeSeparation sandbox/' $SSHD_CONFIG
+	sed -i 's/.*UsePrivilegeSeparation.*/UsePrivilegeSeparation sandbox/' ${SSHD_CONFIG}
 
 	info "Enforce Restriction of user environnement"
-	sed -i 's/.*PermitUserEnvironment.*/PermitUserEnvironment no/' $SSHD_CONFIG
+	sed -i 's/.*PermitUserEnvironment.*/PermitUserEnvironment no/' ${SSHD_CONFIG}
 
 	warn "Restrict number of active sessions = Max is 3 sessions"
-	sed -i 's/.*MaxSessions.*/MaxSessions 3/' $SSHD_CONFIG
+	sed -i 's/.*MaxSessions.*/MaxSessions 3/' ${SSHD_CONFIG}
 
 	info "Deny ROOT account usage"
 	sed -i "s/^.*PermitRootLogin.*$/PermitRootLogin no/g" ${SSHD_CONFIG}
 
 	info "Deny password authentication method"
-	sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication no/' $SSHD_CONFIG
-	sed -i 's/.*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' $SSHD_CONFIG
-	sed -i 's/.*UsePAM.*/UsePAM no/' $SSHD_CONFIG
+	sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication no/' ${SSHD_CONFIG}
+	sed -i 's/.*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' ${SSHD_CONFIG}
+	sed -i 's/.*UsePAM.*/UsePAM no/' ${SSHD_CONFIG}
 
 	info "Restrict to ECDSA or RSA server keypair usage"
 	rm -f $SSHD_DIR/ssh_host_dsa*
@@ -178,19 +156,19 @@ harden_sshd()
 	## ssh-copy-id sshd_username@sshd_ip_address
 
 	info "Prevent X11 Forwading - Graphical Interface Denial"
-	sed -i 's/.*X11Forwarding.*/X11Forwarding no/' $SSHD_CONFIG
+	sed -i 's/.*X11Forwarding.*/X11Forwarding no/' ${SSHD_CONFIG}
 
 	info "Prevent TCP Forwarding on server"
-	sed -i 's/.*AllowTcpForwarding.*/AllowTcpForwarding no/' $SSHD_CONFIG
+	sed -i 's/.*AllowTcpForwarding.*/AllowTcpForwarding no/' ${SSHD_CONFIG}
 
-	warn "ANSSI-R15 - Restrict allowed crypto algorithms"
-    printf "Ciphers aes256-ctr,aes192-ctr,aes128-ctr\n" >> $SSHD_CONFIG
-	printf "MACs hmac-sha2-512,hmac-sha2-256\n" >> $SSHD_CONFIG
+	warn "Restrict allowed crypto algorithms"
+    printf "Ciphers aes256-ctr,aes192-ctr\n" >> ${SSHD_CONFIG}
+	printf "MACs hmac-sha2-512,hmac-sha2-256\n" >> ${SSHD_CONFIG}
 
 	info "Enforcing enhanced logging of SSH Server activities"
-	sed -i 's/.*PrintLastLog.*/PrintLastLog yes/' $SSHD_CONFIG
-	sed -i 's/.*SyslogFacility.*/SyslogFacility AUTH/' $SSHD_CONFIG
-	sed -i 's/.*LogLevel.*/LogLevel INFO/' $SSHD_CONFIG
+	sed -i 's/.*PrintLastLog.*/PrintLastLog yes/' ${SSHD_CONFIG}
+	sed -i 's/.*SyslogFacility.*/SyslogFacility AUTH/' ${SSHD_CONFIG}
+	sed -i 's/.*LogLevel.*/LogLevel INFO/' ${SSHD_CONFIG}
 
 	printf "[${GRN}INFO${RST}] - Reload configuration of OpenSSH Server"
     systemctl restart openssh-server
@@ -201,6 +179,29 @@ harden_sshd()
 		info "SSHD Server is now SECURE - See ya space cowboy !"
 	fi
 }
+
+### MAIN SCRIPT
+###
+while [[ $# > 0 ]]; do
+	ARG="$1"
+	case $ARG in
+	-s|--secure)
+		HARDEN_SSHD=1
+		;;
+	-h|--help)
+		USAGE=1
+		;;
+	-v|--version)
+		VERSION=1
+		;;
+	*)
+		error "Unknonw argument, aborting...\n\n"
+		exit 128
+		;;
+	esac
+	shift
+done
+
 
 if [[ $USAGE = 1 ]]; then
 	usage
