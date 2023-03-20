@@ -157,7 +157,7 @@ harden_sshd()
 	printf " actions may be monitored if unauthorized usage\n" >> ${SSHD_BANNER}
 	printf " is suspected by our organization\n" >> ${SSHD_BANNER}
 	printf "***************************************************\n" >> ${SSHD_BANNER}
-	sed -i "s/.*Banner.*/Banner $SSHD_BANNER/" ${SSHD_CONFIG}
+	sed -i -r "s/.*Banner.*/Banner ${SSHD_BANNER}/g" ${SSHD_CONFIG}
 	sed -i 's/.*PrintMotd.*/PrintMotd no/' ${SSHD_CONFIG}
 
 
