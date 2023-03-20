@@ -151,27 +151,27 @@ harden_sshd()
 	touch ${SSHD_BANNER}
 	printf "" > ${SSHD_BANNER}
 	printf "\n***************************************************\n" >> ${SSHD_BANNER}
-	printf " WARNING Unauthorized access to this system\n" >> ${SSHD_BANNER}
+	printf " !!! WARNING !!! Unauthorized access to this system\n" >> ${SSHD_BANNER}
 	printf " is forbidden and will be prosecuted by law.\n" >> ${SSHD_BANNER}
 	printf " By accessing this system, you agree that your\n" >> ${SSHD_BANNER}
 	printf " actions may be monitored if unauthorized usage\n" >> ${SSHD_BANNER}
 	printf " is suspected by our organization\n" >> ${SSHD_BANNER}
 	printf "***************************************************\n" >> ${SSHD_BANNER}
-	sed -i "s/.*Banner.*/Banner ${SSHD_BANNER}/g" ${SSHD_CONFIG}
-	sed -i 's/.*PrintMotd.*/PrintMotd no/g' ${SSHD_CONFIG}
+	sed -i "s/.*Banner.*/Banner $SSHD_BANNER/" ${SSHD_CONFIG}
+	sed -i 's/.*PrintMotd.*/PrintMotd no/' ${SSHD_CONFIG}
 
 
 	info "Enforce Privilege Execution Separation"
-	sed -i 's/.*UsePrivilegeSeparation.*/UsePrivilegeSeparation sandbox/g' ${SSHD_CONFIG}
+	sed -i 's/.*UsePrivilegeSeparation.*/UsePrivilegeSeparation sandbox/' ${SSHD_CONFIG}
 
 	info "Enforce Restriction of user environnement"
-	sed -i 's/.*PermitUserEnvironment.*/PermitUserEnvironment no/g' ${SSHD_CONFIG}
+	sed -i 's/.*PermitUserEnvironment.*/PermitUserEnvironment no/' ${SSHD_CONFIG}
 
 	info "Restrict number of active sessions = Max is 3 sessions"
-	sed -i 's/.*MaxSessions.*/MaxSessions 3/g' ${SSHD_CONFIG}
+	sed -i 's/.*MaxSessions.*/MaxSessions 3/' ${SSHD_CONFIG}
 
 	info "Lower Grace Time number minimize the risk of brute force attacks"
-	sed -i 's/.*LoginGraceTime.*/MaxSessions 60/g' ${SSHD_CONFIG}
+	sed -i 's/.*LoginGraceTime.*/MaxSessions 60/' ${SSHD_CONFIG}
 
 	info "Deny ROOT account usage"
 	sed -i "s/^.*PermitRootLogin.*$/PermitRootLogin no/g" ${SSHD_CONFIG}
