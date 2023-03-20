@@ -83,21 +83,19 @@ function check_sshd()
 		fi
     fi
 
-    systemctl enable openssh-server &>/dev/null
-    if [[ $(systemctl is-active openssh-server) != "active" ]]; then
+    systemctl enable ssh &>/dev/null
+    if [[ $(systemctl is-active ssh) != "active" ]]; then
         error "Openssh Server Service is NOT RUNNING"
         warn "Use this command for details : 'journalctl -u openssh-server.service -b'"
         exit 1
     else
-        info "OpenSSH Server is now INSTALLED and RUNNING"
+        info "OpenSSH Server is now UP and RUNNING"
     fi
-
-    exit 0
 }
 
 harden_sshd() 
 {
-	info "Starting SSHD Server Hardening...\n"
+	info "Starting SSHD Server Hardening..."
 
 	warn "Backup original config file"
 	cp ${SSHD_CONFIG} ${SSHD_CONFIG}.$(date +"%y%m%d-%H%M%Z").bak
@@ -171,7 +169,7 @@ harden_sshd()
 	sed -i 's/.*LogLevel.*/LogLevel INFO/' ${SSHD_CONFIG}
 
 	printf "[${GRN}INFO${RST}] - Reload configuration of OpenSSH Server"
-    systemctl restart openssh-server
+    systemctl restart ssh
 	if [ $? != 0 ]; then
 		error "FAILED TO APPLY SECURITY CONFIG\n\n"
         warn "Use this command for details : 'journalctl -u openssh-server.service -b'"
