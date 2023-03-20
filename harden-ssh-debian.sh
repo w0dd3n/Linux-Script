@@ -1,7 +1,16 @@
 #!/bin/bash
 # SSH Server Hardening Automation
 
-## TODO - Handle SSH Key generation or import
+## PREREQUISITE
+## Generate allowed users keypair as follow
+## ssh-keygen -t ecdsa -b 256 -C "email@company.com" -f id_ecdsa_USERNAME
+## Store keypair in $HOME/.ssh directory with chmod 700 on private keystore
+## Provide strong password to lock keystore
+## Copy Public Key to the SSHD Server before hardening configuration
+## ssh-copy-id sshd_username@sshd_ip_address
+
+## TODO - Setup with FAIL2BAN
+## TODO - Setup UFW package and configure with SSH Port Listening
 
 
 ### SHARED VARS
@@ -67,6 +76,33 @@ function check_root()
     fi
 }
 
+function custom_update()
+{
+	info "Updating local system packages"
+	apt update &>/dev/null
+	apt upgrade &>/dev/null
+	if [[ $? -ne 0 ]]; then
+		error "System full upgrade FAILED"
+		warn "Use this command for details : 'tail -f /var/log/apt/term.log'"
+		exit 1
+	else
+		info "Full System Upgrade DONE"
+	fi
+
+	info "Custom Packages Installation"
+	apt --yes --quiet --no-install-recommends install \
+#		ufw fail2ban \
+		htop lsb-release unattended-upgrades \
+		secure-delete net-tools dnsutils &>/dev/null
+	if [[ $? -ne 0 ]]; then
+		error "Custom packages installation FAILED"
+		warn "Use this command for details : 'tail -f /var/log/apt/term.log'"
+		exit 1
+	else
+		info "Custome packages installation DONE"
+	fi
+}
+
 function check_sshd()
 {
     info "Testing OpenSSH Server is installed..."
@@ -101,25 +137,26 @@ harden_sshd()
 	cp ${SSHD_CONFIG} ${SSHD_CONFIG}.$(date +"%y%m%d-%H%M%Z").bak
 
 	info "Enforcing SSHD Release 2 only"
-    sed -i "s/^.*Protocol.*$/Protocol 2/g" ${SSHD_CONFIG}
+    sed -i "s/^.*Protocol.*$/Protocol 2/" ${SSHD_CONFIG}
 	
 	info "Replacing port number by 666"
-    sed -i "s/.*Port.*/Port 666/g" ${SSHD_CONFIG}
+    sed -i "s/.*Port.*/Port 666/" ${SSHD_CONFIG}
 
 	info "Anonymize SSHD service banner"
-	warn "Anonymization requires full re-install = ABORTING\n"
+	warn "Anonymization requires full re-install = ABORTING"
+	warn "Customizing service banner"
+	sed -i "s/.*VersionAddendum.*/VersionAddendum 'RESTRICTED'/g" ${SSHD_CONFIG}
 
 	info "Adding login banner message"	
 	touch ${SSHD_BANNER}
 	printf "" > ${SSHD_BANNER}
-	printf "\n\n***************************************************\n" >> ${SSHD_BANNER}
-	printf "\tWARNING Unauthorized access to this system\n" >> ${SSHD_BANNER}
-	printf "\tis forbidden and will be prosecuted by law.\n" >> ${SSHD_BANNER}
-	printf "\tBy accessing this system, you agree that your\n" >> ${SSHD_BANNER}
-	printf "\tactions may be monitored if unauthorized usage\n" >> ${SSHD_BANNER}
-	printf "\tis suspected by our organization\n" >> ${SSHD_BANNER}
+	printf "\n***************************************************\n" >> ${SSHD_BANNER}
+	printf " WARNING Unauthorized access to this system\n" >> ${SSHD_BANNER}
+	printf " is forbidden and will be prosecuted by law.\n" >> ${SSHD_BANNER}
+	printf " By accessing this system, you agree that your\n" >> ${SSHD_BANNER}
+	printf " actions may be monitored if unauthorized usage\n" >> ${SSHD_BANNER}
+	printf " is suspected by our organization\n" >> ${SSHD_BANNER}
 	printf "***************************************************\n" >> ${SSHD_BANNER}
-	printf "Banner ${SSHD_BANNER}\n" >> ${SSHD_CONFIG}
 	sed -i 's/.*Banner.*/Banner ${SSHD_BANNER}/' ${SSHD_CONFIG}
 	sed -i 's/.*PrintMotd.*/PrintMotd no/' ${SSHD_CONFIG}
 
@@ -130,51 +167,54 @@ harden_sshd()
 	info "Enforce Restriction of user environnement"
 	sed -i 's/.*PermitUserEnvironment.*/PermitUserEnvironment no/' ${SSHD_CONFIG}
 
-	warn "Restrict number of active sessions = Max is 3 sessions"
+	info "Restrict number of active sessions = Max is 3 sessions"
 	sed -i 's/.*MaxSessions.*/MaxSessions 3/' ${SSHD_CONFIG}
+
+	info "Lower Grace Time number minimize the risk of brute force attacks"
+	sed -i 's/.*LoginGraceTime.*/MaxSessions 60/' ${SSHD_CONFIG}
 
 	info "Deny ROOT account usage"
 	sed -i "s/^.*PermitRootLogin.*$/PermitRootLogin no/g" ${SSHD_CONFIG}
 
 	info "Deny password authentication method"
-	sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication no/' ${SSHD_CONFIG}
-	sed -i 's/.*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' ${SSHD_CONFIG}
-	sed -i 's/.*UsePAM.*/UsePAM no/' ${SSHD_CONFIG}
+	sed -i 's/.*PubkeyAuthentication.*/PubkeyAuthentication yes/g' ${SSHD_CONFIG}
+	sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication no/g' ${SSHD_CONFIG}
+	sed -i 's/.*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/g' ${SSHD_CONFIG}
+	sed -i 's/.*UsePAM.*/UsePAM no/g' ${SSHD_CONFIG}
 
 	info "Restrict to ECDSA or RSA server keypair usage"
 	rm -f $SSHD_DIR/ssh_host_dsa*
 	rm -f $SSHD_DIR/ssh_host_ed*
 
-	## PREREQUISITE
-	## Generate allowed users keypair as follow
-	## ssh-keygen -t ecdsa -b 256 -C "email@company.com" -f id_ecdsa_USERNAME
-	## Store keypair in $HOME/.ssh directory with chmod 700 on private keystore
-	## Provide strong password to lock keystore
-	## Copy Public Key to the SSHD Server
-	## ssh-copy-id sshd_username@sshd_ip_address
+	info "Enforce validation of file modes and ownership of the user before accepting login"
+	sed -i 's/.*StrictModes.*/StrictModes yes/g' ${SSHD_CONFIG}
+
+	info "Limit max authentication tries, even authentication is Pubkey limited"
+	sed -i 's/.*MaxAuthTries.*/MaxAuthTries 3/g' ${SSHD_CONFIG}
 
 	info "Prevent X11 Forwading - Graphical Interface Denial"
-	sed -i 's/.*X11Forwarding.*/X11Forwarding no/' ${SSHD_CONFIG}
+	sed -i 's/.*X11Forwarding.*/X11Forwarding no/g' ${SSHD_CONFIG}
 
 	info "Prevent TCP Forwarding on server"
-	sed -i 's/.*AllowTcpForwarding.*/AllowTcpForwarding no/' ${SSHD_CONFIG}
+	sed -i 's/.*AllowTcpForwarding.*/AllowTcpForwarding no/g' ${SSHD_CONFIG}
 
 	warn "Restrict allowed crypto algorithms"
-    printf "Ciphers aes256-ctr,aes192-ctr\n" >> ${SSHD_CONFIG}
+    printf "Ciphers aes256-ctr\n" >> ${SSHD_CONFIG}
 	printf "MACs hmac-sha2-512,hmac-sha2-256\n" >> ${SSHD_CONFIG}
 
 	info "Enforcing enhanced logging of SSH Server activities"
-	sed -i 's/.*PrintLastLog.*/PrintLastLog yes/' ${SSHD_CONFIG}
-	sed -i 's/.*SyslogFacility.*/SyslogFacility AUTH/' ${SSHD_CONFIG}
-	sed -i 's/.*LogLevel.*/LogLevel INFO/' ${SSHD_CONFIG}
+	sed -i 's/.*PrintLastLog.*/PrintLastLog yes/g' ${SSHD_CONFIG}
+	sed -i 's/.*SyslogFacility.*/SyslogFacility AUTH/g' ${SSHD_CONFIG}
+	sed -i 's/.*LogLevel.*/LogLevel INFO/g' ${SSHD_CONFIG}
 
-	printf "[${GRN}INFO${RST}] - Reload configuration of OpenSSH Server"
+	info "Reload configuration of OpenSSH Server"
     systemctl restart ssh
 	if [ $? != 0 ]; then
 		error "FAILED TO APPLY SECURITY CONFIG\n\n"
         warn "Use this command for details : 'journalctl -u openssh-server.service -b'"
 	else 
-		info "SSHD Server is now SECURE - See ya space cowboy !"
+		info "SSHD Server is now SECURE"
+		info "See ya space cowboy !"
 	fi
 }
 
@@ -203,15 +243,15 @@ done
 
 if [[ $USAGE = 1 ]]; then
 	usage
-	exit 1
+	exit 0
 elif [[ $VERSION = 1 ]]; then
 	show_version
-	exit 1
+	exit 0
 elif [[ $HARDEN_SSHD = 1 ]]; then
     check_root
 	check_sshd
 	harden_sshd
-	exit 1
+	exit 0
 else 
 	error "Invalid argument. See help for more details.\n"
 	exit 128
