@@ -29,6 +29,7 @@ YEL='\033[0;33m'
 SSHD_CONFIG="/etc/ssh/sshd_config"
 SSHD_DIR="/etc/ssh/"
 SSHD_BANNER="/etc/ssh/sshd-banner.txt"
+SSHD_BANNER_REGEX="\/etc\/ssh\/sshd-banner.txt"
 
 HARDEN_SSHD=0
 USAGE=0
@@ -129,7 +130,7 @@ function check_sshd()
     fi
 }
 
-harden_sshd() 
+function harden_sshd() 
 {
 	info "Starting SSHD Server Hardening..."
 
@@ -157,7 +158,7 @@ harden_sshd()
 	printf " actions may be monitored if unauthorized usage\n" >> ${SSHD_BANNER}
 	printf " is suspected by our organization\n" >> ${SSHD_BANNER}
 	printf "***************************************************\n" >> ${SSHD_BANNER}
-	sed -i -r "s/.*Banner.*/Banner ${SSHD_BANNER}/g" ${SSHD_CONFIG}
+	sed -i -r "s/.*Banner.*/Banner $SSHD_BANNER_REGEX/" ${SSHD_CONFIG}
 	sed -i 's/.*PrintMotd.*/PrintMotd no/' ${SSHD_CONFIG}
 
 
