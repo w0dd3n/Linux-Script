@@ -40,7 +40,7 @@ function error() { echo -e "[\e[31m  ERROR  \e[0m]-$(date --rfc-3339=seconds)-$1
 function warn()  { echo -e "[\e[33m WARNING \e[0m]-$(date --rfc-3339=seconds)-$1" | tee -a ${HARDEN_LOG}; }
 function info()  { echo -e "[\e[32m  INFOS  \e[0m]-$(date --rfc-3339=seconds)-$1" | tee -a ${HARDEN_LOG}; }
 
-usage() 
+function usage() 
 {
 	printf "${BOLD}NAME${RST}\n"
 	printf "	$BASENAME\n\n"
@@ -59,7 +59,7 @@ usage()
 	printf " 		Display command release informations\n\n"
 }
 
-show_version() 
+function show_version() 
 {
 	printf "${BOLD}NAME${RST}    $BASENAME\n"
 	printf "${BOLD}AUTHOR${RST}  $AUTHOR\n"
