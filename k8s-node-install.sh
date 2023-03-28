@@ -146,7 +146,7 @@ function kube_setup()
     info "Configuring kernel environment..."
     modprobe overlay
     modprobe br_netfilter
-    tee /etc/sysctl.d/kubernetes.conf << EOF
+    tee /etc/sysctl.d/kubernetes.conf << EOF >/dev/null
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
@@ -200,7 +200,7 @@ function docker_setup()
     info "Configuring Docker as a Service..."
     mkdir --parents /etc/systemd/system/docker.service.d
     info "Configuring Docker Daemon logging"
-    tee /etc/docker/daemon.json << EOF
+    tee /etc/docker/daemon.json << EOF >/dev/null
 {
 "exec-opts": ["native.cgroupdriver=systemd"],
 "log-driver": "json-file",
@@ -243,7 +243,7 @@ function mirantis_setup()
     DOCKER_CRI_VERSION=$(curl --silent ${MIRANTIS_LATEST} | grep tag_name | cut -d '"' -f 4 | sed 's/v//g')
     wget --quiet ${MIRANTIS_REPO}/v${DOCKER_CRI_VERSION}/cri-dockerd-${DOCKER_CRI_VERSION}}.amd64.tgz \
         --output-document=${K8S_INSTALL_DIR}/cri-dockerd-${VEDOCKER_CRI_VERSION}}.amd64.tgz
-    tar --extract --gzip --file=${K8S_INSTALL_DIR}/cri-dockerd-${VEDOCKER_CRI_VERSION}}.amd64.tgz --directory=${K8S_INSTALL_DIR}
+    tar --extract --gunzip --file=${K8S_INSTALL_DIR}/cri-dockerd-${VEDOCKER_CRI_VERSION}}.amd64.tgz --directory=${K8S_INSTALL_DIR}
     mv ${K8S_INSTALL_DIR}/cri-dockerd/cri-dockerd /usr/local/bin
     if [[ ! $(which cri-dockerd) ]] ; then
         error "MIRANTIS CRI-Dockerd Packages not installed !"
