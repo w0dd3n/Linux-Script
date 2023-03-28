@@ -294,6 +294,8 @@ function init_master_node()
         exit $?
     fi
     systemctl enable kubelet &>/dev/null
+
+    info "Downloading K8S Master Node components images"
     kubeadm config images pull --cri-socket unix:///run/cri-dockerd.sock &>/dev/null
 
     info "Bootstrap cluster without using DNS endpoint"
@@ -332,16 +334,17 @@ function init_master_node()
 #######################################
 function netplugin_setup()
 {
+    CALICO_REPO="https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests"
+
     info "Creating pods to manage cluster via CALICO Network Plugin"
     # TODO - To be executed as ${USER} in charge of cluster control as initialized in master bootstrap
-    kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/tigera-operator.yaml &>/dev/null
-    kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/custom-resources.yaml &>/dev/null
-    if [[ $(kubectl get nodes -o wide | grep ${HOSTNAME} | wc -l) -ne 1 ]]; then
-        error "Creation of Calico Pods has FAILED"
-        exit 1
-    fi
-    info "Calico Network Plugin is ready"
-    info "More about nodes using 'watch kubectl get pods --all-namespaces'"
+    wget --quiet ${CALICO_REPO}/tigera-operator.yaml --output-document=${K8S_INSTALL_DIR}/tigera-operator.yaml
+    wget --quiet ${CALICO_REPO}/tigera-operator.yaml --output-document=${K8S_INSTALL_DIR}/custom-resources.yaml
+
+    sed --in-place "s,cidr:.*,cidr: ${K8S_POD_NET}," ${K8S_INSTALL_DIR}/custom-resources.yaml
+
+    kubectl create -f ${K8S_INSTALL_DIR}/tigera-operator.yaml &>/dev/null
+    kubectl create -f ${K8S_INSTALL_DIR}/custom-resources.yaml &>/dev/null
 
     info "Testing master node is ready..."
     K8S_MASTER_STATUS=$(kubectl get nodes -o wide | grep master | awk '{ print $2 }')
@@ -349,6 +352,9 @@ function netplugin_setup()
         error "K8S Master Node is not ready - Master status is ${K8S_MASTER_STATUS}"
         exit 1
     fi
+    info "Master Node is ready"
+    info "More about nodes using 'watch kubectl get pods --all-namespaces'"
+
 }
 
 
