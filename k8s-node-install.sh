@@ -241,7 +241,7 @@ function mirantis_setup()
 
     info "Getting MIRANTIS Docker-CRI Binaries"
     DOCKER_CRI_VERSION=$(curl --silent ${MIRANTIS_LATEST} | grep tag_name | cut -d '"' -f 4 | sed 's/v//g')
-    wget --quiet ${MIRANTIS_REPO}/v${DOCKER_CRI_VERSION}/cri-dockerd-${DOCKER_CRI_VERSION}}.amd64.tgz \
+    wget --quiet ${MIRANTIS_REPO}/v${DOCKER_CRI_VERSION}/cri-dockerd-${DOCKER_CRI_VERSION}.amd64.tgz \
         --output-document=${K8S_INSTALL_DIR}/cri-dockerd-${VEDOCKER_CRI_VERSION}}.amd64.tgz
     tar --extract --gunzip --file=${K8S_INSTALL_DIR}/cri-dockerd-${VEDOCKER_CRI_VERSION}}.amd64.tgz --directory=${K8S_INSTALL_DIR}
     mv ${K8S_INSTALL_DIR}/cri-dockerd/cri-dockerd /usr/local/bin
