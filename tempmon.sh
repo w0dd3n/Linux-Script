@@ -1,8 +1,13 @@
 #!/bin/bash
 
+## Simple Temperature Monitoring Script
+## Script is to be planned as CRON Task every 15 min
+## Depending on server datasheet, change threshold values CPU_XXXX_TEMP
+
+
 LOG_FILE=/var/log/tempmon.log
-FROM_ADDR=contact@tanooki.fr
-TO_ADDR=cedric.obejero@tanooki.fr
+FROM_ADDR=<email addr to be completed>
+TO_ADDR=<email addr to be completed>
 
 # Recommended values are as follow
 # High Core is 81.00°C
