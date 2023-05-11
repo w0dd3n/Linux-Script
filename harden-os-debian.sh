@@ -51,17 +51,12 @@ NOTES
 EOF
 }
 
-#function show_release() {
-#	cat <<EOF
-#AUTHOR
-#      ${SCRIPT_AUTHOR}
-#
-#RELEASE
-#      $(basename $0) ${SCRIPT_RELEASE}
-#      ${SCRIPT_DATE}
-#
-#EOF
-#}
+function show_release() {
+	cat <<EOF
+$(basename $0) ${SCRIPT_RELEASE} (${SCRIPT_DATE})
+
+EOF
+}
 
 #function check_root() {
 #	if [[ "$(id -u)" -ne 0 ]]; then
