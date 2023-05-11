@@ -62,8 +62,6 @@ function check_root() {
 	if [[ "$(id -u)" -ne 0 ]]; then
 		echo "This script MUST be run as ROOT" >&2
 		exit 1
-	else
-		echo "Access privileges validated"
 	fi
 }
 
@@ -80,9 +78,27 @@ function check_level() {
   fi
 }
 
-#function harden_os() {
-#	warn "${FUNCNAME[0]} - To be completed"
-#}
+function harden_os() {
+  info "Starting hardening local system..."
+
+  info "Applying Filesystem Configuration..."
+  # TODO - To be tested and completed with other FS
+  local -r -a L_DISABLEFS=("cramfs")
+  for l_mname in ${L_DISABLEFS[@]}; do
+    info "Disabling ${lmname} kernel module"
+    if ! modprobe -n -v "$l_mname | grep -Pq -- '^\h*install\/bin\/(true|false)'; then
+      echo -e "install $l_mname /bin/false" >> /etc/modprobe.d/"$l_mname".conf
+    fi
+    if ! lsmod | grep "$l_mname" > /dev/null 2>&1; then
+      modprobe -r "$l_mname"
+    fi
+    if ! grep -Pq -- "^\h*blacklist\h+$l_mname\b" /etc/modprobe.d/*; then
+      echo -e "blacklist $l_mname" >> /etc/modprobe.d/$l_mname".conf
+    fi
+  done
+
+  info "Closing Filesystem Configuration..."
+}
 
 function main() {
 
