@@ -73,8 +73,7 @@ function check_logfile() {
 }
 
 function check_level() {
-  echo "Security Level passed is '$1'"
-	if ! [[ $1 =~ '^[1-3]$' ]]; then
+	if ! [[ $1 =~ ^[1-3]$ ]]; then
     echo 'Required security level argument not valid' >&2;
     echo 'Use option -h for more details';
     exit 1
