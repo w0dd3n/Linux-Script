@@ -58,23 +58,28 @@ $(basename $0) ${SCRIPT_RELEASE} (${SCRIPT_DATE})
 EOF
 }
 
-#function check_root() {
-#	if [[ "$(id -u)" -ne 0 ]]; then
-#		echo "This script MUST be run as ROOT" >&2
-#		exit 1
-#	else
-#		echo "Access privileges validated"
-#	fi
-#}
+function check_root() {
+	if [[ "$(id -u)" -ne 0 ]]; then
+		echo "This script MUST be run as ROOT" >&2
+		exit 1
+	else
+		echo "Access privileges validated"
+	fi
+}
 
-#function check_logfile() {
-#	[ ! -d ${LOGDIR} ] && { mkdir ${LOGDIR}; chown root:root ${LOGDIR}; chmod 775 ${LOGDIR} }
-#	[ ! -f ${LOGFILE} ]] && { touch ${LOGFILE}; chown root:root ${LOGFILE}; chmod 664 ${LOGFILE} }
-#}
+function check_logfile() {
+	[ ! -d ${LOGDIR} ] && { mkdir ${LOGDIR}; chown root:root ${LOGDIR}; chmod 775 ${LOGDIR}; }
+	[ ! -f ${LOGFILE} ] && { touch ${LOGFILE}; chown root:root ${LOGFILE}; chmod 664 ${LOGFILE}; }
+}
 
-#function check_level() {
-#  warn "${FUNCNAME[0]} - To be completed"
-#}
+function check_level() {
+  echo "Security Level passed is '$1'"
+	if ! [[ $1 =~ '^[1-3]$' ]]; then
+    echo 'Required security level argument not valid' >&2;
+    echo 'Use option -h for more details';
+    exit 1
+  fi
+}
 
 #function harden_os() {
 #	warn "${FUNCNAME[0]} - To be completed"
@@ -97,9 +102,9 @@ function main() {
 				;;
 			l)
 				LEVEL=${OPTARG}
-#				check_root
-#       check_logfile
-#				check_level
+				check_root
+        check_logfile
+				check_level ${OPTARG}
 #				harden_os
 				;;
      	:)
