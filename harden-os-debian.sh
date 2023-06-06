@@ -83,15 +83,17 @@ function harden_os() {
 
   info "Applying Filesystem Configuration..."
   # TODO - To be tested and completed with other FS
-  local -r -a L_DISABLEFS=("cramfs")
+  local -r -a L_DISABLEFS=("cramfs" "squashfs" "udf" "coda" "befs" "dlm" "f2fs" "freevxfs" "hfs" "hfsplus" "fat" "jffs2" )
   for l_mname in ${L_DISABLEFS[@]}; do
-    info "Disabling ${lmname} kernel module"
-    if ! modprobe -n -v "$l_mname | grep -Pq -- '^\h*install\/bin\/(true|false)'; then
+    info "Prevent ${l_mname} kernel module to be loaded on-demand"
+    if ! modprobe --show --verbose "$l_mname | grep --perl-regexp --quiet -- '^\h*install\/bin\/(true|false)'; then
       echo -e "install $l_mname /bin/false" >> /etc/modprobe.d/"$l_mname".conf
     fi
+		info "Unload ${lmname} from running system if loaded"
     if ! lsmod | grep "$l_mname" > /dev/null 2>&1; then
       modprobe -r "$l_mname"
     fi
+		info "Prevent ${l_mname} from being loaded directly"
     if ! grep -Pq -- "^\h*blacklist\h+$l_mname\b" /etc/modprobe.d/*; then
       echo -e "blacklist $l_mname" >> /etc/modprobe.d/$l_mname".conf
     fi
