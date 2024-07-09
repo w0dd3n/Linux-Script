@@ -5,6 +5,8 @@
 # Script will generate archive and checksum 
 # and then transfert file to remote backup server
 #
+# N.B. Create dedicated user for CRONTAB and BACKUP_LOG access
+#
 # Author - Cedric OBEJERO <cedric.obejero@tanooki.fr>
 # Date   - July 2024
 ##
@@ -16,7 +18,7 @@ set -o nounset
 declare -r SCRIPT_NAME="wp-backup"
 declare -r SCRIPT_VERSION="V0R1"
 declare -r SCRIPT_PATH=$( cd $(dirname ${BASH_SOURCE[0]}) > /dev/null; pwd -P )
-declare -r TMP_FILE_PREFIX=${TMPDIR:-/tmp}/$SCRIPT_NAME.$$
+declare -r TMP_FILE_PREFIX=${TMPDIR:-/tmp}/$SCRIPT_NAME
 declare -r OPT_CHECKSUM_LIST="sha1 sha256 sha384 sha512"
 declare -r BACKUP_LOG="/var/log/$SCRIPT_NAME.log"
 
@@ -27,7 +29,7 @@ declare BACKUP_DIR="/var/www/html"
 
 # SECTION - Functions
 
-function log_err() { echo -e "[ ERR ] - $(date --rfc-3330=seconds) - $1" | tee -a ${BACKUP_LOG}; }
+function log_err() { echo -e "[ ERR ] - $(date --rfc-3339=seconds) - $1" | tee -a ${BACKUP_LOG}; }
 function log_wrn() { echo -e "[ DBG ] - $(date --rfc-3339=seconds) - $1" | tee -a ${BACKUP_LOG}; }
 function log_inf() { echo -e "[ INF ] - $(date --rfc-3339=seconds) - $1" | tee -a ${BACKUP_LOG}; }
 function log_dbg() { if [ ${DEBUG_MODE} == 1 ]; then echo -e "[ DBG ] - $(date --rfc-3339=seconds) - $1" | tee -a ${BAC>
@@ -38,7 +40,7 @@ function check_required_programs() {
         #req_progs date sha1sum sha256sum sha384sum sha512sum
         for prog in ${@}; do
                 hash "${prog}" 2>&- || \
-                        { echo >&2 "Required program \"${prog}\" not installed nor in search PATH.";
+                        { log_err "Required program \"${prog}\" not installed nor in search PATH.";
                           exit 65;
                         }
         done
@@ -55,7 +57,7 @@ function check_hash_option() {
 
 function check_backup_dir() {
         if [[ ! -d ${BACKUP_DIR} || ! -r ${BACKUP_DIR} ]]; then
-                echo "Not a directory or access denied to ${BACKUP_DIR}"
+                log_err "Not a directory or access denied to ${BACKUP_DIR}"
                 return  2
         else
                 backup_files=$(find "${BACKUP_DIR}" -type f)
@@ -69,16 +71,44 @@ function check_backup_dir() {
 }
 
 function collect_data() {
-        echo "${FUNCNAME} - to be implemented - ARGS : ${BACKUP_DIR}"
-        exit 0;
+#       log_wrn "${FUNCNAME} - to be implemented - ARGS : ${BACKUP_DIR}"
+
+        local backup_date=$(date --iso-8601=second --utc | tr -d "\-\:\+")
+        tar --create --gzip --absolute-names \
+            --same-permissions --same-owner \
+            --file ${TMP_FILE_PREFIX}.${backup_date}.tar.gz ${BACKUP_DIR}
+        if [ $? -ne 0 ]; then
+                log_err "Failed to create backup archive - error code: $?"
+                cleanup
+                return 5
+        else
+                case ${CHECKSUM_OPT} in
+                        sha1)
+                                echo -e "SHA160==$(sha1sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PREF>
+                                ;;
+                        sha256)
+                                echo -e "SHA256==$(sha256sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PR>
+                                ;;
+                        sha384)
+                                echo -e "SHA384==$(sha384sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PR>
+                                ;;
+                        sha512)
+                                echo -e "SHA512==$(sha512sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PR>
+                                ;;
+                esac
+                log_inf "SUCCESS - Backup archive and checksum created"
+        fi
+
+        return 0;
 }
 
 function transfer_data() {
-        echo "${FUNCNAME} - to be implemented"
+        log_wrn "${FUNCNAME} - to be implemented"
         exit 0;
 }
 
 function cleanup() {
+        log_inf "Cleaning up temporary files and cached data"
         rm -f ${TMP_FILE_PREFIX}.*
 }
 
@@ -186,33 +216,33 @@ function main() {
                 esac
         done
 
-       check_hash_option ${CHECKSUM_OPT}
+        check_hash_option ${CHECKSUM_OPT}
         if [ $? -ne 0 ]; then
-                echo "Invalid checksum option ${CHECKSUM_OPT}"
+                log_err "Invalid checksum option ${CHECKSUM_OPT}"
                 exit 1
         fi
 
-        check_backup_dir ${BACKUP_DIR}
+       check_backup_dir ${BACKUP_DIR}
         if [ $? -ne 0 ]; then
-                echo "Invalid directory to backup ${BACKUP_DIR}"
+                log_err "Invalid directory to backup ${BACKUP_DIR}"
                 exit 2
         fi
 
         collect_data
         if [ $? -ne 0 ]; then
-                echo "Cannot build up archive of backup from ${BACKUP_DIR}"
+                log_err "Cannot build up archive of backup from ${BACKUP_DIR}"
                 cleanup
                 exit 5
         fi
 
         transfer_data
         if [ $? -ne 0 ]; then
-                echo "Failed to upload backup data"
+                log_err "Failed to upload backup data"
                 cleanup
                 exit 101
         fi
 
-        cleanup
+#       cleanup
 
         exit 0
 }
@@ -222,4 +252,3 @@ trap "cleanup; exit 1" 1 2 3 13 15
 
 # main executable function at the end of script
 main "$@"
-
