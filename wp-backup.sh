@@ -1,10 +1,11 @@
-!/bin/bash
+#!/bin/bash
 
 ###
-# Script to backup Wordpress website - wp-form
+# Script to backup Wordpress website
 # Script will generate archive and checksum 
 # and then transfert file to remote backup server
 #
+# Author - Cedric OBEJERO <cedric.obejero@tanooki.fr>
 # Date   - July 2024
 ##
 
@@ -14,27 +15,67 @@ set -o nounset
 # SECTION - Global constants
 declare -r SCRIPT_NAME="wp-backup"
 declare -r SCRIPT_VERSION="V0R1"
-declare -r SCRIPT_PATH=$( cd $(dirname ${BACH_SOURCE[0]}) > /dev/null; pwd -P )
+declare -r SCRIPT_PATH=$( cd $(dirname ${BASH_SOURCE[0]}) > /dev/null; pwd -P )
 declare -r TMP_FILE_PREFIX=${TMPDIR:-/tmp}/$SCRIPT_NAME.$$
+declare -r OPT_CHECKSUM_LIST="sha1 sha256 sha384 sha512"
+declare -r BACKUP_LOG="/var/log/$SCRIPT_NAME.log"
 
-declare -r ERR_NOERROR=0
-declare -r ERR_NOENT=1
-declare -r ERR_IO=5
-declare -r ERR_NOPKG=65
-declare -r ERR_PROTO=71
-declare -r ERR_NETDOWN=100
-declare -r ERR_NETUNREACH=101
-declare -r ERR_CONNRESET=104
+# SECTION - Globales for default script values
+declare DEBUG_MODE=0
+declare CHECKSUM_OPT="sha256"
+declare BACKUP_DIR="/var/www/html"
 
 # SECTION - Functions
+
+function log_err() { echo -e "[ ERR ] - $(date --rfc-3330=seconds) - $1" | tee -a ${BACKUP_LOG}; }
+function log_wrn() { echo -e "[ DBG ] - $(date --rfc-3339=seconds) - $1" | tee -a ${BACKUP_LOG}; }
+function log_inf() { echo -e "[ INF ] - $(date --rfc-3339=seconds) - $1" | tee -a ${BACKUP_LOG}; }
+function log_dbg() { if [ ${DEBUG_MODE} == 1 ]; then echo -e "[ DBG ] - $(date --rfc-3339=seconds) - $1" | tee -a ${BAC>
+
+# TODO - Rotate logs
+
 function check_required_programs() {
-        req_progs(date sha1sum sha256sum sha384sum sha512sum)
+        #req_progs date sha1sum sha256sum sha384sum sha512sum
         for prog in ${@}; do
                 hash "${prog}" 2>&- || \
                         { echo >&2 "Required program \"${prog}\" not installed nor in search PATH.";
-                          exit ERR_NOPKG;
+                          exit 65;
                         }
         done
+}
+
+function check_hash_option() {
+        for sum in ${OPT_CHECKSUM_LIST}; do
+                if [ "$sum" = "$1" ]; then
+                        return 0;
+                fi
+        done
+        return 1;
+}
+
+function check_backup_dir() {
+        if [[ ! -d ${BACKUP_DIR} || ! -r ${BACKUP_DIR} ]]; then
+                echo "Not a directory or access denied to ${BACKUP_DIR}"
+                return  2
+        else
+                backup_files=$(find "${BACKUP_DIR}" -type f)
+                for file in $backup_files; do
+                        if [ ! -r ${BACKUP_DIR} ]; then
+                                return 5
+                        fi
+                done
+        fi
+        return 0
+}
+
+function collect_data() {
+        echo "${FUNCNAME} - to be implemented - ARGS : ${BACKUP_DIR}"
+        exit 0;
+}
+
+function transfer_data() {
+        echo "${FUNCNAME} - to be implemented"
+        exit 0;
 }
 
 function cleanup() {
@@ -42,26 +83,29 @@ function cleanup() {
 }
 
 function show_version() {
-        echo ${SCRIPT_NAME} under release ${SCRIPT_VERSION}"
+        echo "${SCRIPT_NAME} under release ${SCRIPT_VERSION}"
 }
 
 function usage() {
-cat <<EOF
+more <<EOF
 NAME
         wp-backup - Automation script to create and export backup archive of wordpress websites
 
 SYNOPSYS
-        wp-backup [OPTIONS] 
+        wp-backup [OPTIONS]
 
 DESCRIPTION
         wp-backup is a BASH Script provided to automate schedule backup tasks
 
 OPTIONS
-        -c, --checksum [sha1 | sha256 | sha384 | sha512]
+        -c, --checksum [ sha1 | sha256 | sha384 | sha512 ]
                 Define message digest algorithm to be used, default as SHA-256
 
         -d, --debug
                 Display and log debugging messages
+
+        -f, --file
+                Path to website files to backup, defautl to /var/www/html
 
         -h, --help
                 Display this manual page
@@ -76,7 +120,7 @@ RETURN CODES
 
         2       No such file or directory, see FILES section for more
 
-        5       I/O Error using file system
+        5       I/O Error using file system or not readable files
 
         65      Required package not available
 
@@ -87,7 +131,6 @@ RETURN CODES
         101     Target server is unreachable
 
         104     Connection reset by peer
-
 FILES
         /usr/local/bin/wp-bakup.sh
                 Default location to store the script
@@ -107,38 +150,71 @@ EOF
 
 # SECTION - Main entrance
 function main() {
-        local -r OPTS=':chv'
+        local -r OPTS=':f:c:hv'
+
+        check_required_programs "date sha1sum sha256sum sha384sum sha512sum"
 
         while builtin getopts ${OPTS} opt "${@}"; do
                 case $opt in
+                        f)
+                                BACKUP_DIR="$OPTARG";
+                                ;;
                         c)
-                                echo "TODO - Complete checksum";
-                                exit ERR_NOERROR;
+                                CHECKSUM_OPT="$OPTARG";
+                                ;;
+                        d)
+                                DEBUG_MODE=1
                                 ;;
                         h)
                                 usage;
-                                exit ERR_NOERROR;
+                                exit 0;
                                 ;;
                         v)
                                 show_version;
-                                exit ERR_NOERROR;
+                                exit 0;
                                 ;;
                         \?)
                                 echo ${opt} ${OPTIND} 'is an invalid option' >&2;
                                 usage;
-                                exit ERR_NOENT;
+                                exit 1;
                                 ;;
                         *)
-                                echo "Too many options. Cannot happen actually !";
+                                echo "Invalid option or argument";
                                 usage;
-                                exit ERR_NOENT;
+                                exit 1;
                                 ;;
                 esac
         done
 
+       check_hash_option ${CHECKSUM_OPT}
+        if [ $? -ne 0 ]; then
+                echo "Invalid checksum option ${CHECKSUM_OPT}"
+                exit 1
+        fi
+
+        check_backup_dir ${BACKUP_DIR}
+        if [ $? -ne 0 ]; then
+                echo "Invalid directory to backup ${BACKUP_DIR}"
+                exit 2
+        fi
+
+        collect_data
+        if [ $? -ne 0 ]; then
+                echo "Cannot build up archive of backup from ${BACKUP_DIR}"
+                cleanup
+                exit 5
+        fi
+
+        transfer_data
+        if [ $? -ne 0 ]; then
+                echo "Failed to upload backup data"
+                cleanup
+                exit 101
+        fi
+
         cleanup
 
-        exit ERR_NOERROR
+        exit 0
 }
 
 # set a trap for cleaning up the environment before process termination
@@ -146,3 +222,4 @@ trap "cleanup; exit 1" 1 2 3 13 15
 
 # main executable function at the end of script
 main "$@"
+
