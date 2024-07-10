@@ -109,16 +109,16 @@ function collect_data() {
         else
                 case ${CHECKSUM_OPT} in
                         sha1)
-                                echo -e "SHA160==$(sha1sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_P>
+                                echo -e "SHA160==$(sha1sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PREFIX}.${backup_date}.checksum
                                 ;;
                         sha256)
-                                echo -e "SHA256==$(sha256sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE>
+                                echo -e "SHA256==$(sha256sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PREFIX}.${backup_date}.checksum
                                 ;;
                         sha384)
-                                echo -e "SHA384==$(sha384sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE>
+                                echo -e "SHA384==$(sha384sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PREFIX}.${backup_date}.checksum
                                 ;;
                         sha512)
-                                echo -e "SHA512==$(sha512sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE>
+                                echo -e "SHA512==$(sha512sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PREFIX}.${backup_date}.checksum
                                 ;;
                 esac
                 log_inf "SUCCESS - Backup archive and checksum created"
