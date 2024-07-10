@@ -1,10 +1,10 @@
-!/bin/bash
+#!/bin/bash
 
 ###
 # Script to backup one node of Galera cluster
 # Basic method using mysqldump is proposed
 # Advanced approch should use mariabackup tool
-# Script will generate archive and checksum 
+# Script will generate archive and checksum
 # and then transfert file to remote backup server
 # To be scheduled with CRONTAB of dedicated service user
 #
@@ -21,10 +21,9 @@ declare -r SCRIPT_NAME="db-backup"
 declare -r SCRIPT_VERSION="V0R1"
 declare -r SCRIPT_PATH=$( cd $(dirname ${BASH_SOURCE[0]}) > /dev/null; pwd -P )
 declare -r TMP_FILE_PREFIX=${TMPDIR:-/tmp}/$SCRIPT_NAME
-declare -r BACKUP_DIR=${TMP_FILE_PREFIX}/
 declare -r OPT_CHECKSUM_LIST="sha1 sha256 sha384 sha512"
 declare -r BACKUP_LOG="/var/log/$SCRIPT_NAME.log"
-declare -r NAS_HOST="nas.tanooki.fr"
+declare -r NAS_HOST="srv-cyb-nas.rns.simplon.co"
 declare -r NAS_USER="mscyber-form"
 declare -r NAS_USER_KEY="/var/lib/backup-script/.ssh/id_ecdsa"
 declare -r NAS_HOMEDIR="/home/mscyber-form"
@@ -51,7 +50,7 @@ function log_dbg() { if [ ${DEBUG_MODE} == 1 ]; then echo -e "[ DBG ] - $(date -
 function check_required_programs() {
         log_dbg "ENTER - check_required_programs()"
 
-        #req_progs mysql mysqldump date sha1sum sha256sum sha384sum sha512sum
+        #req_progs mysql mysqldump tar scp date sha1sum sha256sum sha384sum sha512sum
         for prog in ${@}; do
                 hash "${prog}" 2>&- || \
                         { log_err "Required program \"${prog}\" not installed nor in search PATH.";
@@ -71,29 +70,20 @@ function check_hash_option() {
         return 1;
 }
 
-function check_backup_dir() {
-        log_dbg "ENTER - check_backup_dir()"
+function check_db_access() {
+        log_dbg "ENTER - check_db_access()"
 
-        if [[ ! -d ${BACKUP_DIR} || ! -r ${BACKUP_DIR} ]]; then
-                log_err "Not a directory or access denied to ${BACKUP_DIR}"
-                return  2
-        else
-                backup_files=$(find "${BACKUP_DIR}" -type f)
-                for file in $backup_files; do
-                        if [ ! -r ${BACKUP_DIR} ]; then
-                                return 5
-                        fi
-                done
-        fi
         return 0
 }
 
 function collect_data() {
         log_dbg "ENTER - collect_data()"
 
-        # TODO - mysql -u root -ppassword --execute "SET wsrep desync = ON"
+        # TODO - mysql -u root -ppassword --execute "SET wsrep_desync = ON"
 
         # TODO - mysqldump -p -u admin_backup --flush-logs --all-databases > ${TMP_FILE_PREFIX}.${backup_date}.sql
+
+        # TODO - mysql -u root -ppassword --execute "SET wsrep_desync = OFF"
 
         # TODO - cp /etc/my.conf ${TMP_FILE_PREFIX}/etc/my.cnf
         # TODO - cp /etc/mysql/mariadb.conf.d/60-galera.cnf ${TMP_FILE_PREFIX}/etc/mysql/mariadb.conf.d/60-galera.cnf
@@ -170,9 +160,6 @@ OPTIONS
         -d, --debug
                 Display and log debugging messages
 
-        -f, --file
-                Path to website files to backup, defautl to /var/www/html
-
         -h, --help
                 Display this manual page
 
@@ -187,6 +174,8 @@ RETURN CODES
         2       No such file or directory, see FILES section for more
 
         5       I/O Error using file system or not readable files
+
+        7       Database access failed
 
         65      Required package not available
 
@@ -217,15 +206,12 @@ EOF
 
 # SECTION - Main entrance
 function main() {
-        local -r OPTS=':f:c:hv'
+        local -r OPTS=':c:hv'
 
-        check_required_programs "mysql mysqldump date sha1sum sha256sum sha384sum sha512sum"
+        check_required_programs "mysql mysqldump tar scp date sha1sum sha256sum sha384sum sha512sum"
 
         while builtin getopts ${OPTS} opt "${@}"; do
                 case $opt in
-                        f)
-                                BACKUP_DIR="$OPTARG";
-                                ;;
                         c)
                                 CHECKSUM_OPT="$OPTARG";
                                 ;;
@@ -259,11 +245,12 @@ function main() {
                 exit 1
         fi
 
-        check_backup_dir ${BACKUP_DIR}
+        check_db_access
         if [ $? -ne 0 ]; then
-                log_err "Invalid directory to backup ${BACKUP_DIR}"
-                exit 2
+                log_err "Failed to access database for backup ops"
+                exit 7
         fi
+
         collect_data
         if [ $? -ne 0 ]; then
                 log_err "Cannot build up archive of backup from ${BACKUP_DIR}"
