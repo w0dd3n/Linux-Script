@@ -1,14 +1,13 @@
 #!/bin/bash
 
 ###
-# Script to backup one node of Galera cluster
-# Basic method using mysqldump is proposed
-# Advanced approch should use mariabackup tool
+# Script to backup one node of Galera cluster - mysqldump basic method
+# Advanced approch should use mariabackup for performance purposes
 # Script will generate archive and checksum
 # and then transfert file to remote backup server
 # To be scheduled with CRONTAB of dedicated service user
 #
-# N.B. Create dedicated user for CRONTAB and BACKUP_LOG access
+# N.B. Create dedicated service user for CRONTAB and BACKUP_LOG access
 #
 # Date   - July 2024
 ##
@@ -20,13 +19,22 @@ set -o nounset
 declare -r SCRIPT_NAME="db-backup"
 declare -r SCRIPT_VERSION="V0R1"
 declare -r SCRIPT_PATH=$( cd $(dirname ${BASH_SOURCE[0]}) > /dev/null; pwd -P )
+
 declare -r TMP_FILE_PREFIX=${TMPDIR:-/tmp}/$SCRIPT_NAME
+
 declare -r OPT_CHECKSUM_LIST="sha1 sha256 sha384 sha512"
 declare -r BACKUP_LOG="/var/log/$SCRIPT_NAME.log"
+
 declare -r NAS_HOST="srv-cyb-nas.rns.simplon.co"
 declare -r NAS_USER="mscyber-form"
 declare -r NAS_USER_KEY="/var/lib/backup-script/.ssh/id_ecdsa"
 declare -r NAS_HOMEDIR="/home/mscyber-form"
+
+# TODO - Upgrade usage with Key Vault like Harshicorp Vault
+declare -r DB_BACKUP_USER="admin_backup"
+declare -r DB_BACKUP_PWD="password"
+declare -r DB_ADMIN_USER="root"
+declare -r DB_ADMIN_PWD="password"
 
 # Apply before execute
 # $ ssh-keygen -b 256 -t ecdsa
@@ -79,7 +87,7 @@ function check_db_access() {
 function collect_data() {
         log_dbg "ENTER - collect_data()"
 
-        # TODO - mysql -u root -ppassword --execute "SET wsrep_desync = ON"
+        # TODO - rc_value=$(mysql -u root -ppassword --execute "SET wsrep_desync = ON" 2>&1) ; if [ $? -ne 0 ] log_err $rc_value
 
         # TODO - mysqldump -p -u admin_backup --flush-logs --all-databases > ${TMP_FILE_PREFIX}.${backup_date}.sql
 
@@ -97,6 +105,7 @@ function collect_data() {
                 cleanup
                 return 5
         else
+                # IMPORTANT - First check value with check_hash_option()
                 case ${CHECKSUM_OPT} in
                         sha1)
                                 echo -e "SHA160==$(sha1sum ${TMP_FILE_PREFIX}.${backup_date}.tar.gz)" > ${TMP_FILE_PREFIX}.${backup_date}.checksum
@@ -206,7 +215,7 @@ EOF
 
 # SECTION - Main entrance
 function main() {
-        local -r OPTS=':c:hv'
+        local -r OPTS=':c:dhv'
 
         check_required_programs "mysql mysqldump tar scp date sha1sum sha256sum sha384sum sha512sum"
 
