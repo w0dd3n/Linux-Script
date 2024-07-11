@@ -25,7 +25,7 @@ declare -r TMP_FILE_PREFIX=${TMPDIR:-/tmp}/$SCRIPT_NAME
 declare -r OPT_CHECKSUM_LIST="sha1 sha256 sha384 sha512"
 declare -r BACKUP_LOG="/var/log/$SCRIPT_NAME.log"
 
-declare -r NAS_HOST="srv-cyb-nas.rns.simplon.co"
+declare -r NAS_HOST="nas.tanooki.fr"
 declare -r NAS_USER="mscyber-form"
 declare -r NAS_USER_KEY="/var/lib/backup-script/.ssh/id_ecdsa"
 declare -r NAS_HOMEDIR="/home/mscyber-form"
@@ -35,6 +35,9 @@ declare -r DB_BACKUP_USER="admin_backup"
 declare -r DB_BACKUP_PWD="password"
 declare -r DB_ADMIN_USER="root"
 declare -r DB_ADMIN_PWD="password"
+declare -r DB_HOST="localhost"
+declare -r DB_PORT="3306"
+declare -r DB_NAME="wordpress"
 
 # Apply before execute
 # $ ssh-keygen -b 256 -t ecdsa
@@ -81,28 +84,54 @@ function check_hash_option() {
 function check_db_access() {
         log_dbg "ENTER - check_db_access()"
 
+        mysql   --host ${DB_HOST} --port ${DB_PORT} \
+                --user ${DB_BACKUP__USER} --password${DB_BACKUP_PWD} \
+                ${DB_NAME} --execute "SELECT 1;" 2>&1 /dev/null
+        case $? in
+                1)    log_err "Failed to connect to database server"; return 1 ;;
+                1045) log_err "Authentication failed. Check username and password."; return 7 ;;
+                1049) log_err "Unknown database. Check database logs for more."; return 7 ;;
+                *)    log_err "Unknown error: $? - Check database logs for more."; return 1 ;;
+        esac
+
         return 0
 }
 
 function collect_data() {
         log_dbg "ENTER - collect_data()"
 
-        # TODO - rc_value=$(mysql -u root -ppassword --execute "SET wsrep_desync = ON" 2>&1) ; if [ $? -ne 0 ] log_err $rc_value
+        local -r backup_date=$(date --iso-8601=second --utc | tr -d "\-\:\+")
 
-        # TODO - mysqldump -p -u admin_backup --flush-logs --all-databases > ${TMP_FILE_PREFIX}.${backup_date}.sql
+        log_inf "Prepare node for backup - Desinchronizing WSREP"
+        rc_value=$(mysql --user ${DB_ADMIN} --password${DB_ADMIN_PWD} --execute "SET wsrep_desync = ON" 2>&1)
+        if [ $? -ne 0 ]; then
+                log_err $rc_value
+                return 7
+        fi
 
-        # TODO - mysql -u root -ppassword --execute "SET wsrep_desync = OFF"
+        log_inf "Dumping content of all databases ..."
+        mysqldump --user ${DB_BACKUP_USER} --password${DB_BACKUP_PWD} \
+                  --flush-logs --all-databases > ${TMP_FILE_PREFIX}.${backup_date}.sql
+        if [ $? -ne 0 ]; then 
+                log_err "Failed dump of databases - Error code: $?"
+                return 7
+        fi
 
-        # TODO - cp /etc/my.conf ${TMP_FILE_PREFIX}/etc/my.cnf
-        # TODO - cp /etc/mysql/mariadb.conf.d/60-galera.cnf ${TMP_FILE_PREFIX}/etc/mysql/mariadb.conf.d/60-galera.cnf
+        log_inf "Databases extract finalized - Restore node WSREP synchronization"
+        rc_value=$(mysql --user ${DB_ADMIN} --password${DB_ADMIN_PWD} --execute "SET wsrep_desync = OFF" 2>&1)
+        if [ $? -ne 0 ]; then
+                log_err $rc_value
+                return 7
+        fi
 
-        local backup_date=$(date --iso-8601=second --utc | tr -d "\-\:\+")
+        cp /etc/my.conf ${TMP_FILE_PREFIX}.${backup_date}.my.cnf
+        cp /etc/mysql/mariadb.conf.d/60-galera.cnf ${TMP_FILE_PREFIX}.${backup_date}.60-galera.cnf
+
         tar --create --gzip --absolute-names \
             --same-permissions --same-owner \
-            --file ${TMP_FILE_PREFIX}.${backup_date}.tar.gz ${BACKUP_DIR}
+            --file ${TMP_FILE_PREFIX}.${backup_date}.tar.gz ${TMP_FILE_PREFIX}.*.sql ${TMP_FILE_PREFIX}.*.cnf
         if [ $? -ne 0 ]; then
                 log_err "Failed to create backup archive - error code: $?"
-                cleanup
                 return 5
         else
                 # IMPORTANT - First check value with check_hash_option()
@@ -284,3 +313,4 @@ trap "cleanup; exit 1" 1 2 3 13 15
 
 # main executable function at the end of script
 main "$@"
+
